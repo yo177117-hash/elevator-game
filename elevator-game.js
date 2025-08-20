@@ -71,8 +71,8 @@ function playDingDong() {
 /* ---------- 유령/엔딩 ---------- */
 let rndGhostActive = false;
 let rndGhostScale = 1.0;
-let rndGhostGrow  = 0.012;
-let rndGhostText  = ""; // "공","포","게임"
+let rndGhostGrow  = 0.08;
+let rndGhostText  = ""; // "horror","스릴러게임","호러공포"
 let rndGhostKind  = ""; // move|arrive|deliver
 
 let pausedMovement = false;
@@ -89,8 +89,8 @@ let deliverGhostTarget = null;
 
 let endGhostActive = false;
 let endGhostScale  = 1.0;
-const END_GHOST_MAX = 3.2;
-let endGhostGrow   = 0.022;
+const END_GHOST_MAX = 4.0;
+let endGhostGrow   = 0.012;
 
 function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 function planGhosts(){
@@ -151,7 +151,14 @@ function tryEndGhostAutoRedirect(){
 
 /* ---------- p5 ---------- */
 function setup(){
-  createCanvas(960, 600).parent('game-container');
+  const w = Math.min(windowWidth, 1920);
+  const h = Math.min(windowHeight, 1080);
+  createCanvas(w, h).parent('game-container');
+}
+function windowResized(){
+  const w = Math.min(windowWidth, 1920);
+  const h = Math.min(windowHeight, 1080);
+  resizeCanvas(w, h);
 }
 function draw(){
   background(20);

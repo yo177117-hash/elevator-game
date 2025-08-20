@@ -74,7 +74,7 @@ let rndGhostActive = false;
 let rndGhostScale  = 1.0;
 let rndGhostGrow   = 0.012;   // 천천히
 const RND_GHOST_MAX = 2.2;    // 랜덤 유령 최대 스케일
-let rndGhostText   = "";       // "공","포","게임"
+let rndGhostText   = "";       // "horror","thriller","mystery"
 let rndGhostKind   = "";       // move|arrive|deliver
 
 let pausedMovement = false;
@@ -112,7 +112,7 @@ function triggerRndGhost(kind){
   rndGhostActive = true;
   rndGhostScale  = 1.0;
   rndGhostKind   = kind;
-  rndGhostText   = (kind==='move') ? '공' : (kind==='arrive') ? '포' : '게임';
+  rndGhostText   = (kind==='move') ? 'horror' : (kind==='arrive') ? 'thriller' : 'mystery';
 
   if (doorState!=='open'){
     doorState='opening';

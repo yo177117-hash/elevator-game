@@ -69,20 +69,22 @@ function playDingDong() {
 }
 
 /* ---------- 유령/엔딩 ---------- */
-// 랜덤 유령(3종) — 천천히 커짐, 최대 도달 뒤에만 글씨 노출
+/* 랜덤 유령 3종: 비율 유지로 320→1920×1080까지 천천히 확대
+   - move, deliver: 최대 크기(1920×1080에 맞춘 최대) 도달 후 텍스트 표시
+   - arrive(2번 GIF): 최대 도달 + 트리거 후 10초 경과해야 텍스트 표시 */
 let rndGhostActive = false;
-let rndGhostScale  = 1.0;
-let rndGhostGrow   = 0.012;   // 천천히
-const RND_GHOST_MAX = 2.2;    // 랜덤 유령 최대 스케일
-let rndGhostText   = "";       // "horror","thriller","mystery"
+let rndGhostProg   = 0.0;      // 0→1 로 진행(사이즈 보간)
+const RND_GROW_PER_FRAME = 0.012; // 천천히
+let rndGhostText   = "";       // "25horror"/"25thriller"/"25mystery"
 let rndGhostKind   = "";       // move|arrive|deliver
+let rndGhostStartMS = 0;       // arrive 딜레이용 시작 시각(ms)
 
 let pausedMovement = false;
 let pausedTarget = null;
 
 const ghostDone = { move:false, arrive:false, deliver:false };
 
-// 언제 터뜨릴지 랜덤 타이밍
+// 랜덤 타이밍
 let moveStepCount = 0;
 let arriveOpenCount = 0;
 let deliveryDoneCount = 0;
@@ -90,19 +92,33 @@ let moveGhostTarget = null;
 let arriveGhostTarget = null;
 let deliverGhostTarget = null;
 
-// 엔딩 유령(4번 이미지) — “즉시” 크게, 이미지 클릭 시 이동
+// 엔딩(4번): 즉시 최대(1920×1080 기준)로 크게, 클릭하면 onstove 이동
 let endGhostActive = false;
-let endGhostScale  = 1.0;
-const END_GHOST_MAX = 4.0;   // 즉시 이 크기로
-let endGhostGrow   = 0.012;  // (엔딩은 사용 안 하지만 유지)
-let endGhostHitbox = {x:0,y:0,w:0,h:0}; // 클릭 판정에 사용
+let endGhostScaleW = 0; // 실제 그릴 너비
+let endGhostScaleH = 0; // 실제 그릴 높이
+let endGhostHitbox = {x:0,y:0,w:0,h:0}; // 클릭 판정
 
-function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+// 비율 유지로 320→1920×1080 사이즈 계산
+const MIN_W = 320, MIN_H = 180;
+const MAX_W = 1920, MAX_H = 1080;
+
+function fitScaleByProgress(img, prog) {
+  // 이미지 원본 크기에 대해, 비율 유지로 min→max 사이 보간
+  const maxScale = Math.min(MAX_W / img.width, MAX_H / img.height);
+  const minScale = Math.min(MIN_W / img.width, MIN_H / img.height);
+  const p = constrain(prog, 0, 1);
+  const scale = minScale + (maxScale - minScale) * p;
+  return {
+    w: img.width  * scale,
+    h: img.height * scale,
+    atMax: (p >= 1)
+  };
+}
+
 function planGhosts(){
-  // 각 타입 한 번씩, “언제 나올지”만 랜덤
-  moveGhostTarget    = randInt(1,6);  // 이동 스텝 중
-  arriveGhostTarget  = randInt(1,4);  // 문 열림 횟수 중
-  deliverGhostTarget = randInt(1,4);  // 정상 배송 완료 횟수 중
+  moveGhostTarget    = Math.floor(random(1,7)); // 1~6
+  arriveGhostTarget  = Math.floor(random(1,5)); // 1~4
+  deliverGhostTarget = Math.floor(random(1,5)); // 1~4
 }
 
 function triggerRndGhost(kind){
@@ -110,9 +126,10 @@ function triggerRndGhost(kind){
   if (ghostDone[kind]) return;
 
   rndGhostActive = true;
-  rndGhostScale  = 1.0;
+  rndGhostProg   = 0.0;
   rndGhostKind   = kind;
-  rndGhostText   = (kind==='move') ? 'horror' : (kind==='arrive') ? 'thriller' : 'mystery';
+  rndGhostText   = (kind==='move') ? '25horror' : (kind==='arrive') ? '25thriller' : '25mystery';
+  rndGhostStartMS = millis(); // arrive의 10초 지연 체크용
 
   if (doorState!=='open'){
     doorState='opening';
@@ -128,7 +145,7 @@ function triggerRndGhost(kind){
 function stopRndGhost(){
   if (!rndGhostActive) return;
   rndGhostActive = false;
-  rndGhostScale  = 1.0;
+  rndGhostProg   = 0.0;
   ghostDone[rndGhostKind] = true;
 
   doorState='closing'; doorTimer=60;
@@ -144,9 +161,15 @@ function stopRndGhost(){
   }
 }
 function startEndGhost(){
-  // 엔딩 유령은 “즉시” 크게
+  if (!isImgReady(ghostImgs.end)) return;
   endGhostActive = true;
-  endGhostScale  = END_GHOST_MAX;
+
+  // 엔딩은 즉시 최대(1920×1080 기준) 크기
+  const img = ghostImgs.end;
+  const s = Math.min(MAX_W/img.width, MAX_H/img.height);
+  endGhostScaleW = img.width * s;
+  endGhostScaleH = img.height * s;
+
   // 문은 열려 있어야 보임
   doorState='opening';
   doorTimer = Math.max(1, Math.floor((1 - doorProgress) * 60));
@@ -333,28 +356,16 @@ function drawApartmentDoor(x,y,w,h){
 }
 
 /* ---------- 유령 ---------- */
-function drawGhostImageOrFallback(img,cx,cy,scaleV,txt,baseW,baseH){
-  if (isImgReady(img)) {
-    try{
-      imageMode(CENTER);
-      image(img, cx, cy, baseW * scaleV, baseH * scaleV);
-      imageMode(CORNER);
-    }catch(e){
-      drawGhostFallback(cx,cy,scaleV);
-    }
-  } else {
-    drawGhostFallback(cx,cy,scaleV);
-  }
-  if (txt) {
-    const alpha = map(scaleV,1.0, RND_GHOST_MAX, 100, 255, true);
-    fill(255,alpha); textAlign(CENTER,CENTER); textSize(32*scaleV);
-    text(txt, cx, cy+40*scaleV);
-  }
+function drawGhostImage(img, cx, cy, drawW, drawH){
+  imageMode(CENTER);
+  image(img, cx, cy, drawW, drawH); // 비율 유지된 크기로 그리기
+  imageMode(CORNER);
 }
-function drawGhostFallback(cx,cy,scaleV){
+function drawGhostFallback(cx,cy,prog){
   push();
   translate(cx, cy);
-  scale(scaleV);
+  const s = 0.5 + 1.5 * constrain(prog,0,1);
+  scale(s);
   noStroke();
   fill(230);
   ellipse(0, -10, 120, 140);
@@ -363,39 +374,65 @@ function drawGhostFallback(cx,cy,scaleV){
 }
 function drawRndGhost(){
   if (doorProgress < 0.2) return;
+
   const cx = doorHitbox.x + doorHitbox.w/2;
   const cy = doorHitbox.y + doorHitbox.h*0.52;
-  const baseW = doorHitbox.w * 0.9;
-  const baseH = doorHitbox.h * 0.9;
 
-  rndGhostScale = Math.min(RND_GHOST_MAX, rndGhostScale + rndGhostGrow);
+  // 진행도 증가(0→1)
+  rndGhostProg = Math.min(1, rndGhostProg + RND_GROW_PER_FRAME);
 
   const img = (rndGhostKind==='move') ? ghostImgs.move
            : (rndGhostKind==='arrive') ? ghostImgs.arrive
            : ghostImgs.deliver;
 
-  // 최대 크기에 도달하기 전까지는 글씨 숨김
-  const showText = (rndGhostScale >= RND_GHOST_MAX);
-  drawGhostImageOrFallback(img, cx, cy, rndGhostScale, showText ? rndGhostText : '', baseW, baseH);
+  if (isImgReady(img)){
+    const {w, h, atMax} = fitScaleByProgress(img, rndGhostProg);
+    drawGhostImage(img, cx, cy, w, h);
+
+    // 텍스트 노출 조건
+    let showText = false;
+    if (rndGhostKind === 'arrive') {
+      // 최대 도달 + 10초 경과
+      const elapsed = millis() - rndGhostStartMS;
+      showText = atMax && (elapsed >= 10000);
+    } else {
+      // move, deliver는 최대 도달 시
+      showText = atMax;
+    }
+
+    if (showText) {
+      fill(255, 255);
+      textAlign(CENTER, CENTER);
+      textSize(32);
+      text(rndGhostText, cx, cy + 40);
+    }
+  } else {
+    drawGhostFallback(cx, cy, rndGhostProg);
+  }
 }
 function drawEndGhost(){
   if (doorProgress < 0.2) return;
+
   const cx = doorHitbox.x + doorHitbox.w/2;
   const cy = doorHitbox.y + doorHitbox.h*0.52;
-  const baseW = doorHitbox.w * 1.2;
-  const baseH = doorHitbox.h * 1.2;
 
-  // 엔딩은 즉시 최대 스케일(END_GHOST_MAX)으로 고정 표시
-  const s = END_GHOST_MAX;
-  drawGhostImageOrFallback(ghostImgs.end, cx, cy, s, '', baseW, baseH); // 글씨는 없음
+  const img = ghostImgs.end;
+  if (isImgReady(img)){
+    // 이미 startEndGhost에서 1920×1080 기준 최대 크기 계산해 둠
+    drawGhostImage(img, cx, cy, endGhostScaleW, endGhostScaleH);
 
-  // 클릭 판정용 hitbox 저장
-  endGhostHitbox = {
-    x: cx - (baseW * s) / 2,
-    y: cy - (baseH * s) / 2,
-    w: baseW * s,
-    h: baseH * s
-  };
+    // 클릭 판정용 hitbox 저장
+    endGhostHitbox = {
+      x: cx - endGhostScaleW/2,
+      y: cy - endGhostScaleH/2,
+      w: endGhostScaleW,
+      h: endGhostScaleH
+    };
+  }else{
+    // 로딩 실패 시에도 대충 크게
+    drawGhostFallback(cx, cy, 2.5);
+    endGhostHitbox = {x:cx-200, y:cy-200, w:400, h:400};
+  }
 }
 
 /* ---------- 로직 ---------- */
@@ -463,8 +500,8 @@ function generateGameData(){
 
   currentFloor=1; targetFloor=null;
   doorState='open'; doorProgress=1; elevatorMoving=false; elevatorDirection='';
-  rndGhostActive=false; rndGhostScale=1.0; rndGhostText=''; rndGhostKind=''; pausedMovement=false; pausedTarget=null;
-  endGhostActive=false; endGhostScale=1.0; endGhostHitbox={x:0,y:0,w:0,h:0};
+  rndGhostActive=false; rndGhostProg=0.0; rndGhostText=''; rndGhostKind=''; pausedMovement=false; pausedTarget=null;
+  endGhostActive=false; endGhostScaleW=0; endGhostScaleH=0; endGhostHitbox={x:0,y:0,w:0,h:0};
 
   moveStepCount=0; arriveOpenCount=0; deliveryDoneCount=0;
   ghostDone.move=false; ghostDone.arrive=false; ghostDone.deliver=false;
@@ -486,10 +523,24 @@ function mousePressed(){
   initAudio();
   if (rndGhostActive) return;
 
+  // 슬롯 내 패키지 클릭 판정
   for (let i=packages.length-1;i>=0;i--){
     const p=packages[i];
     if (p.delivered) continue;
-    if (mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h){
+
+    // 클릭만으로 엔딩: 일반 배달 전부 완료 후, ?? 박스 클릭 시 즉시 엔딩
+    const normalsDone = deliveries.every(d => d.isMystery || d.delivered);
+
+    const over = (mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h);
+    if (over) {
+      if (p.isMystery && normalsDone && !endGhostActive) {
+        p.delivered = true;
+        const found = deliveries.find(d=>d.isMystery && !d.delivered);
+        if (found) found.delivered = true;
+        startEndGhost();
+        return;
+      }
+      // 아니면 드래그 시작
       draggingIdx=i; p.dragging=true;
       dragOffset.x=mouseX-p.x; dragOffset.y=mouseY-p.y;
       break;
@@ -507,10 +558,9 @@ function mouseReleased(){
 
   if (doorState==='open' && showDoor && inDoor && currentFloor===p.floor){
     if (p.isMystery){
-      // 엔딩 조건: 일반 배달 전부 완료 + 세 랜덤 유령 모두 나옴
+      // (클릭으로도 엔딩이 뜨지만, 드롭으로도 가능하게 유지)
       const normalsDone = deliveries.every(d => d.isMystery || d.delivered);
-      const allRndDone  = ghostDone.move && ghostDone.arrive && ghostDone.deliver;
-      if (normalsDone && allRndDone && !endGhostActive){
+      if (normalsDone && !endGhostActive){
         p.delivered=true;
         const found=deliveries.find(d=>d.isMystery && !d.delivered);
         if (found) found.delivered=true;
@@ -527,7 +577,7 @@ function mouseReleased(){
 
         deliveryDoneCount++;
         if (!ghostDone.deliver){
-          if (!deliverGhostTarget) deliverGhostTarget = randInt(1,4);
+          if (!deliverGhostTarget) deliverGhostTarget = Math.floor(random(1,5));
           if (deliveryDoneCount===deliverGhostTarget) triggerRndGhost('deliver');
         }
       }

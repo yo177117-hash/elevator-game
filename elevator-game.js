@@ -5,13 +5,23 @@ const GHOST_URLS = {
   deliver:'https://gundog.dothome.co.kr/public/uploads/3.jpg?_t=1755609169',
   end:    'https://gundog.dothome.co.kr/public/uploads/4.jpg?_t=1755609169'
 };
+Thought for 35sjavascript// ========== 외부 이미지 (CORS 우회: HTMLImageElement) ==========
+const GHOST_URLS = {
+  move: '1-1.jpg',
+  arrive: '2.gif',
+  deliver: '3.jpg',
+  end: '4.jpg'
+};
 let ghostImgs = { move:null, arrive:null, deliver:null, end:null };
 function loadGhostImagesNoCORS() {
   Object.entries(GHOST_URLS).forEach(([k, url]) => {
-    const img = new Image();     // crossOrigin 설정 안함(중요)
-    img.src = url;
-    img.onload = () => ghostImgs[k] = img;
-    img.onerror = () => { console.warn(`${k} 이미지 로드 실패:`, url); ghostImgs[k] = null; };
+    loadImage(url, (img) => {
+      ghostImgs[k] = img;
+      console.log(`[ghost] ${k} 이미지 로드 성공: ${url}`);
+    }, () => {
+      console.warn(`[ghost] ${k} 이미지 로드 실패: ${url}`);
+      ghostImgs[k] = null;
+    });
   });
 }
 
@@ -148,13 +158,8 @@ function tryEndGhostAutoRedirect(){
 
 // ========== p5 ==========
 function setup(){
-  createCanvas(980, 640);
+  createCanvas(800, 600).parent('game-container');
   loadGhostImagesNoCORS();
-  let cnv;
-function setup() {
-  cnv = createCanvas(800, 600);   // 크기는 게임에 맞게
-  cnv.parent('game-container');   // <== 중요
-}
 }
 function draw(){
   background(20);
@@ -329,19 +334,27 @@ function drawApartmentDoor(x,y,w,h){
 
 // ========== 귀신(이미지/대체) ==========
 function drawGhostImageOrFallback(img,cx,cy,scaleV,txt,baseW=260,baseH=260){
-  if (img && img.complete) {
+  if (img && img.complete && img.width > 0 && img.height > 0) {
     imageMode(CENTER);
-    image(img, cx, cy, baseW*scaleV, baseH*scaleV);
+    image(img, cx, cy, baseW * scaleV, baseH * scaleV);
     imageMode(CORNER);
   } else {
-    push(); translate(cx,cy); scale(scaleV);
-    noStroke(); fill(230); ellipse(0,-10,120,140); rect(-60,40,120,120,20); pop();
+    push();
+    translate(cx, cy);
+    scale(scaleV);
+    noStroke();
+    fill(230);
+    ellipse(0, -10, 120, 140);
+    rect(-60, 40, 120, 120, 20);
+    pop();
+    console.warn('[ghost] 이미지 렌더링 실패, 대체 그래픽 사용');
   }
   const alpha = map(scaleV,1.0,2.0,100,255,true);
   fill(255,alpha); textAlign(CENTER,CENTER); textSize(32*scaleV);
   text(txt, cx, cy+40*scaleV);
 }
 function drawRndGhost(x,y,w,h){
+  console.log('[ghost] drawRndGhost:', { kind: rndGhostKind, img: ghostImgs[rndGhostKind] });
   fill(0,0,0,120); rect(230,20,520,600);
   rndGhostScale=Math.min(2.2, rndGhostScale+rndGhostGrow);
   const cx=x+w/2, cy=y+h/2-10;
@@ -487,4 +500,3 @@ function drawButton(x,y,w,h,label,onClick){
   fill(255); textAlign(CENTER,CENTER); textSize(12);
   text(label, x+w/2, y+h/2);
   if (hover && mouseIsPressed) onClick();
-}

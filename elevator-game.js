@@ -1,9 +1,9 @@
 // ========== 외부 이미지 (CORS 우회: HTMLImageElement) ==========
 const GHOST_URLS = {
-  move:   'https://gundog.dothome.co.kr/public/uploads/1.jpg?_t=1755608528',
-  arrive: 'https://gundog.dothome.co.kr/public/uploads/2.gif?_t=1755609169',
-  deliver:'https://gundog.dothome.co.kr/public/uploads/3.jpg?_t=1755609169',
-  end:    'https://gundog.dothome.co.kr/public/uploads/4.jpg?_t=1755609169'
+  move:   'https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/stove_app_image/1-1.jpg',
+  arrive: 'https://d2x8kymwjom7h7.cloudfront.net/live/application_no/96001/default/2361049a539147a3b14c5d418d93f276.gif',
+  deliver:'https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/stove_app_image/3.jpg',
+  end:    'https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/stove_app_image/4.jpg'
 };
 let ghostImgs = { move:null, arrive:null, deliver:null, end:null };
 function loadGhostImagesNoCORS() {

@@ -1,49 +1,153 @@
 /* =========================
  * Elevator Game (p5.js)
+ * - 외부 이미지 제거
+ * - 내장 도트 귀신(move/arrive/deliver/end) 4종
+ * - 문 틈(doorHitbox 중심) 기준 스케일업
+ * - 버튼 디바운스, ESC로 유령 닫기
  * ========================= */
 
-/* ---------- 외부 이미지 ---------- */
-const GHOST_URLS = {
-  move:   'https://gundog.dothome.co.kr/public/uploads/1.jpg?_t=1755608528',
-  arrive: 'https://gundog.dothome.co.kr/public/uploads/2.gif?_t=1755609169',
-  deliver:'https://gundog.dothome.co.kr/public/uploads/3.jpg?_t=1755609169',
-  end:    'https://gundog.dothome.co.kr/public/uploads/4.jpg?_t=1755609169'
+/* ---------- 도트 귀신 정의 ---------- */
+/* 각 귀신은 16x16 매트릭스. 숫자는 팔레트 인덱스.
+ * 0: 투명, 1: 몸통, 2: 윤곽, 3: 액센트(눈/입 등) */
+const PIXEL_GHOSTS = {
+  move: {
+    palette: ['rgba(0,0,0,0)', '#9be7ff', '#2b92b9', '#ffffff'],
+    pixels: [
+      // 심플한 떠다니는 유령
+      [0,0,0,0,0,2,2,2,2,2,0,0,0,0,0,0],
+      [0,0,0,2,2,1,1,1,1,1,2,2,0,0,0,0],
+      [0,0,2,1,1,1,1,1,1,1,1,1,2,0,0,0],
+      [0,2,1,1,1,3,1,1,1,3,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,2,1,1,2,2,1,1,2,2,1,1,2,0,0],
+      [0,0,0,2,2,0,0,2,2,0,0,2,2,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+  },
+  arrive: {
+    palette: ['rgba(0,0,0,0)', '#ffd1e8', '#c4557a', '#ffffff'],
+    pixels: [
+      // 문 열릴 때 깜작 등장하는 느낌(동그란 눈)
+      [0,0,0,0,2,2,2,2,2,2,2,0,0,0,0,0],
+      [0,0,0,2,1,1,1,1,1,1,1,2,0,0,0,0],
+      [0,0,2,1,1,1,1,1,1,1,1,1,2,0,0,0],
+      [0,2,1,1,3,1,1,1,1,1,3,1,1,2,0,0],
+      [0,2,1,1,3,1,1,1,1,1,3,1,1,2,0,0],
+      [0,2,1,1,1,1,1,2,2,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,2,2,2,2,1,1,1,2,0,0],
+      [0,2,1,1,1,2,2,1,1,2,2,1,1,2,0,0],
+      [0,2,1,1,1,2,1,1,1,1,2,1,1,2,0,0],
+      [0,2,1,1,1,2,1,1,1,1,2,1,1,2,0,0],
+      [0,2,1,1,1,2,2,1,1,2,2,1,1,2,0,0],
+      [0,2,1,1,1,1,2,2,2,2,1,1,1,2,0,0],
+      [0,2,2,1,1,1,1,2,2,1,1,1,2,2,0,0],
+      [0,0,2,2,1,1,2,0,0,2,1,1,2,0,0,0],
+      [0,0,0,2,2,0,0,0,0,0,2,2,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+  },
+  deliver: {
+    palette: ['rgba(0,0,0,0)', '#ffeaa7', '#c27c1a', '#2b2b2b'],
+    pixels: [
+      // 배달 후 등장(입 모양 강조)
+      [0,0,0,0,2,2,2,2,2,2,2,0,0,0,0,0],
+      [0,0,0,2,1,1,1,1,1,1,1,2,0,0,0,0],
+      [0,0,2,1,1,1,1,1,1,1,1,1,2,0,0,0],
+      [0,2,1,1,3,1,1,1,1,1,3,1,1,2,0,0],
+      [0,2,1,1,3,1,1,1,1,1,3,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,3,3,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,3,3,3,3,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,3,3,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+      [0,2,2,1,1,2,2,1,1,2,2,1,1,2,0,0],
+      [0,0,2,2,1,0,0,2,2,0,0,1,2,2,0,0],
+      [0,0,0,2,2,0,0,0,0,0,0,2,2,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+  },
+  end: {
+    palette: ['rgba(0,0,0,0)', '#d6b3ff', '#6e42c1', '#ffffff'],
+    pixels: [
+      // 엔딩용(왕관 느낌)
+      [0,0,0,0,0,2,0,2,0,2,0,0,0,0,0,0],
+      [0,0,0,0,2,1,2,1,2,1,2,0,0,0,0,0],
+      [0,0,0,2,1,1,1,1,1,1,1,2,0,0,0,0],
+      [0,0,2,1,1,1,1,1,1,1,1,1,2,0,0,0],
+      [0,2,1,1,3,1,1,1,1,1,3,1,1,2,0,0],
+      [0,2,1,1,3,1,1,1,1,1,3,1,1,2,0,0],
+      [0,2,1,1,1,1,1,2,2,1,1,1,1,2,0,0],
+      [0,2,1,1,1,1,2,2,2,2,1,1,1,2,0,0],
+      [0,2,1,1,1,2,2,1,1,2,2,1,1,2,0,0],
+      [0,2,1,1,1,2,1,1,1,1,2,1,1,2,0,0],
+      [0,2,1,1,1,2,2,1,1,2,2,1,1,2,0,0],
+      [0,2,1,1,1,1,2,2,2,2,1,1,1,2,0,0],
+      [0,2,2,1,1,1,1,2,2,1,1,1,2,2,0,0],
+      [0,0,2,2,1,1,2,0,0,2,1,1,2,0,0,0],
+      [0,0,0,2,2,0,0,0,0,0,2,2,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+  }
 };
-let ghostImgs = { move:null, arrive:null, deliver:null, end:null };
 
-// p5는 preload() 안에서 로드하면 setup 전에 모두 보장됨
-function preload() {
-  Object.entries(GHOST_URLS).forEach(([k, url]) => {
-    ghostImgs[k] = loadImage(url, null, () => { ghostImgs[k] = null; });
-  });
-}
-function isImgReady(img){
-  return img && typeof img === 'object' && 'width' in img && 'height' in img && img.width > 0 && img.height > 0;
+function drawPixelArt(kind, cx, cy, scaleV, baseW, baseH) {
+  const ghost = PIXEL_GHOSTS[kind];
+  const grid = ghost.pixels;
+  const pal = ghost.palette;
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  // baseW/H는 문 크기에 맞춘 "기본 사이즈", scaleV로 확대
+  const sizeW = (baseW * scaleV) / cols;
+  const sizeH = (baseH * scaleV) / rows;
+
+  noStroke();
+  for (let y=0; y<rows; y++) {
+    for (let x=0; x<cols; x++) {
+      const idx = grid[y][x];
+      if (idx === 0) continue;
+      fill(pal[idx]);
+      rect(cx - (cols/2 - x) * sizeW, cy - (rows/2 - y) * sizeH, sizeW, sizeH, 2);
+    }
+  }
 }
 
 /* ---------- 상태 ---------- */
 let gameState = 'start'; // start, deliveryList, inElevator
-let deliveries = [];
-let houses4 = [];
-let packages  = [];
+
+let deliveries = []; // 4 유니크 + 1 미스터리
+let houses4 = [];    // 우측 배달 목록(4개)
+let packages  = [];  // 5개(?? 포함)
 
 let currentFloor = 1;
 let targetFloor  = null;
 let elevatorMoving = false;
-let elevatorDirection = '';
-let doorState = 'open';
-let doorProgress = 1;
+let elevatorDirection = ''; // '', '↑', '↓'
+let doorState = 'open';     // open, closing, closed, opening
+let doorProgress = 1;       // 0~1 (1=open)
 let doorTimer = 0;
 let moveTimer = 0;
 
 let showDoor = false;
 let doorHitbox = { x:0, y:0, w:0, h:0 };
 
-const ambientAptByFloor = {};
+const ambientAptByFloor = {}; // 목록에 없는 층의 임의 호수 캐시
+
+// 드래그
 let draggingIdx = -1;
 let dragOffset = {x:0,y:0};
 
-/* ---------- 사운드 ---------- */
+/* ---------- 사운드(띵동) ---------- */
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) {
@@ -68,7 +172,7 @@ function playDingDong() {
   tone(784,t); tone(659,t+0.22);
 }
 
-/* ---------- 유령/엔딩 ---------- */
+/* ---------- 랜덤 귀신 3회 + 엔딩 ---------- */
 let rndGhostActive = false;
 let rndGhostScale = 1.0;
 let rndGhostGrow  = 0.012;
@@ -83,9 +187,9 @@ const ghostDone = { move:false, arrive:false, deliver:false };
 let moveStepCount = 0;
 let arriveOpenCount = 0;
 let deliveryDoneCount = 0;
-let moveGhostTarget = null;
-let arriveGhostTarget = null;
-let deliverGhostTarget = null;
+let moveGhostTarget = null;    // 1~6
+let arriveGhostTarget = null;  // 1~4
+let deliverGhostTarget = null; // 1~4
 
 let endGhostActive = false;
 let endGhostScale  = 1.0;
@@ -244,11 +348,11 @@ function drawElevator(){
   showDoor = (doorProgress>0.18);
   if (showDoor) drawApartmentDoor(gapX, area.y, gapW, area.h);
 
-  // 유령은 문 틈(doorHitbox 중심) 기준으로 커지게 그림
+  // 유령 (문 틈 기준)
   if (rndGhostActive) drawRndGhost();
   if (endGhostActive) drawEndGhost();
 
-  // 엘리베이터 문 (마지막에 그려 문으로 가림)
+  // 엘리베이터 문을 맨 마지막에 그려서 유령을 가린다
   fill(120); stroke(200); strokeWeight(2);
   rect(area.x, area.y, eachW, area.h);
   rect(area.x+area.w-eachW, area.y, eachW, area.h);
@@ -273,7 +377,7 @@ function drawLeftPanel(){
   drawButton(105,y+6,60,26,'닫힘',()=>{
     if (rndGhostActive){ stopRndGhost(); return; }
     if(!endGhostActive && !elevatorMoving && doorState!=='closed'){
-      doorState='closing'; doorTimer=Math.max(1,Math.floor(doorProgress)*60);
+      doorState='closing'; doorTimer=Math.max(1,Math.floor(doorProgress*60));
     }
   });
 }
@@ -294,7 +398,7 @@ function floorClick(f){
     moveTimer=60;
   } else {
     doorState='closing';
-    doorTimer=Math.max(1,Math.floor(doorProgress)*60);
+    doorTimer=Math.max(1,Math.floor(doorProgress*60));
   }
 }
 
@@ -329,42 +433,22 @@ function drawApartmentDoor(x,y,w,h){
   text(hasJobs?'해당 층: 택배를 문으로 드래그해 놓으세요':'해당 층 배달 건이 없습니다', x+w/2, y+h-70);
 }
 
-/* ---------- 유령 ---------- */
-function drawGhostImageOrFallback(img,cx,cy,scaleV,txt,baseW,baseH){
-  if (isImgReady(img)) {
-    try{
-      imageMode(CENTER);
-      image(img, cx, cy, baseW * scaleV, baseH * scaleV);
-      imageMode(CORNER);
-    }catch(e){
-      drawGhostFallback(cx,cy,scaleV);
-    }
-  } else {
-    drawGhostFallback(cx,cy,scaleV);
-  }
-  const alpha = map(scaleV,1.0,2.0,100,255,true);
-  fill(255,alpha); textAlign(CENTER,CENTER); textSize(32*scaleV);
-  text(txt, cx, cy+40*scaleV);
-}
-function drawGhostFallback(cx,cy,scaleV){
-  push();
-  translate(cx, cy);
-  scale(scaleV);
-  noStroke();
-  fill(230);
-  ellipse(0, -10, 120, 140);
-  rect(-60, 40, 120, 120, 20);
-  pop();
-}
+/* ---------- 유령(도트 렌더) ---------- */
 function drawRndGhost(){
-  if (doorProgress < 0.2) return;
+  if (doorProgress < 0.2) return; // 문이 어느 정도 열렸을 때만 보이기
   const cx = doorHitbox.x + doorHitbox.w/2;
   const cy = doorHitbox.y + doorHitbox.h*0.52;
   const baseW = doorHitbox.w * 0.9;
   const baseH = doorHitbox.h * 0.9;
-  rndGhostScale=Math.min(2.2, rndGhostScale+rndGhostGrow);
-  const img = (rndGhostKind==='move')?ghostImgs.move:(rndGhostKind==='arrive')?ghostImgs.arrive:ghostImgs.deliver;
-  drawGhostImageOrFallback(img,cx,cy,rndGhostScale,rndGhostText,baseW,baseH);
+  rndGhostScale = Math.min(2.2, rndGhostScale + rndGhostGrow);
+  const kind = (rndGhostKind==='move') ? 'move' :
+               (rndGhostKind==='arrive') ? 'arrive' : 'deliver';
+  drawPixelArt(kind, cx, cy, rndGhostScale, baseW, baseH);
+
+  // 텍스트 효과
+  const alpha = map(rndGhostScale,1.0,2.0,100,255,true);
+  fill(255,alpha); textAlign(CENTER,CENTER); textSize(28*rndGhostScale);
+  text(rndGhostText, cx, cy + baseH*rndGhostScale*0.35);
 }
 function drawEndGhost(){
   if (doorProgress < 0.2) return;
@@ -372,12 +456,12 @@ function drawEndGhost(){
   const cy = doorHitbox.y + doorHitbox.h*0.52;
   const baseW = doorHitbox.w * 1.2;
   const baseH = doorHitbox.h * 1.2;
-  endGhostScale=Math.min(END_GHOST_MAX, endGhostScale+endGhostGrow);
-  drawGhostImageOrFallback(ghostImgs.end,cx,cy,endGhostScale,'게임',baseW,baseH);
+  endGhostScale = Math.min(END_GHOST_MAX, endGhostScale + endGhostGrow);
+  drawPixelArt('end', cx, cy, endGhostScale, baseW, baseH);
   tryEndGhostAutoRedirect();
 }
 
-/* ---------- 로직 ---------- */
+/* ---------- 엘리베이터 로직 ---------- */
 function updateElevator(){
   if (doorState==='closing' && doorTimer>0){
     doorTimer--; doorProgress=doorTimer/60;
@@ -449,7 +533,7 @@ function generateGameData(){
   ghostDone.move=false; ghostDone.arrive=false; ghostDone.deliver=false;
 }
 
-/* ---------- 드래그 ---------- */
+/* ---------- 드래그 & 드롭 ---------- */
 function mousePressed(){
   if (gameState!=='inElevator') return;
   initAudio();
@@ -465,7 +549,7 @@ function mousePressed(){
   }
 }
 function mouseReleased(){
-  _justClicked = false;
+  _justClicked = false; // 버튼 디바운스 해제
 
   if (draggingIdx===-1) return;
   const p=packages[draggingIdx]; p.dragging=false;

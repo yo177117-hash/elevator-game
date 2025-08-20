@@ -5,13 +5,6 @@ const GHOST_URLS = {
   deliver:'https://gundog.dothome.co.kr/public/uploads/3.jpg?_t=1755609169',
   end:    'https://gundog.dothome.co.kr/public/uploads/4.jpg?_t=1755609169'
 };
-Thought for 35sjavascript// ========== 외부 이미지 (CORS 우회: HTMLImageElement) ==========
-const GHOST_URLS = {
-  move: '1-1.jpg',
-  arrive: '2.gif',
-  deliver: '3.jpg',
-  end: '4.jpg'
-};
 let ghostImgs = { move:null, arrive:null, deliver:null, end:null };
 function loadGhostImagesNoCORS() {
   Object.entries(GHOST_URLS).forEach(([k, url]) => {

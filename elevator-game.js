@@ -150,6 +150,11 @@ function tryEndGhostAutoRedirect(){
 function setup(){
   createCanvas(980, 640);
   loadGhostImagesNoCORS();
+  let cnv;
+function setup() {
+  cnv = createCanvas(800, 600);   // 크기는 게임에 맞게
+  cnv.parent('game-container');   // <== 중요
+}
 }
 function draw(){
   background(20);

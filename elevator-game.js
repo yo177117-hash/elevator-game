@@ -483,7 +483,7 @@ function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse,
   if (usePulse) {
     rndGhostScale = computePulseScale(elapsed, 1.0, 0.12, 400, maxScale);
   } else {
-    rndGhostScale = min(maxScale, rndGhostScale + 0.4);
+    rndGhostScale = min(maxScale, rndGhostScale + 0.8);
   }
 
   imageMode(CENTER);

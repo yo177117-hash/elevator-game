@@ -4,16 +4,16 @@
 
 /* ---------- 외부 이미지 ---------- */
 const GHOST_URLS = {
-  move:   'https://gundog.dothome.co.kr/public/uploads/1.jpg?_t=1755608528',
-  arrive: 'https://gundog.dothome.co.kr/public/uploads/2.gif?_t=1755609169',
-  deliver:'https://gundog.dothome.co.kr/public/uploads/3.jpg?_t=1755609169',
-  end:    'https://gundog.dothome.co.kr/public/uploads/4.jpg?_t=1755609169'
+  move:   'https://stovestore.dothome.co.kr/public/uploads/1.jpg?_t=1755776901',
+  arrive: 'https://stovestore.dothome.co.kr/public/uploads/2.gif?_t=1755776905',
+  deliver:'https://stovestore.dothome.co.kr/public/uploads/3.jpg?_t=1755776912',
+  end:    'https://stovestore.dothome.co.kr/public/uploads/4.jpg?_t=1755776917'
 };
 const WARN_URLS = {
-  lean: 'https://gundog.dothome.co.kr/public/uploads/gi.jpg?_t=1755699175',
-  hand: 'https://gundog.dothome.co.kr/public/uploads/son.jpg?_t=1755699177'
+  lean: 'https://stovestore.dothome.co.kr/public/uploads/gi.jpg?_t=1755777080',
+  hand: 'https://stovestore.dothome.co.kr/public/uploads/son.jpg?_t=1755777080'
 };
-const BOX_URL = 'https://gundog.dothome.co.kr/public/uploads/box-1.png?_t=1755746605';
+const BOX_URL = 'https://stovestore.dothome.co.kr/public/uploads/box-1.png?_t=1755776879';
 
 let ghostImgs = { move:null, arrive:null, deliver:null, end:null };
 let warnImgs  = { lean:null, hand:null };
@@ -60,8 +60,8 @@ let dragOffset = {x:0,y:0};
    - 이동 시 ele.wav 재생 (루프)
    - 엔딩 시 mp3 1회만 재생
 */
-const MOVE_SFX_URL = 'https://gundog.dothome.co.kr/public/uploads/ele.wav?_t=1755774980';
-const END_SCREAM_URL = 'https://gundog.dothome.co.kr/public/uploads/992714455D07B50C08.mp3?_t=1755769109';
+const MOVE_SFX_URL = 'https://stovestore.dothome.co.kr/public/uploads/ele.wav?_t=1755776889';
+const END_SCREAM_URL = 'https://stovestore.dothome.co.kr/public/uploads/992714455D07B50C08.mp3?_t=1755776891';
 
 let moveAudio = null;
 let endScreamAudio = null;

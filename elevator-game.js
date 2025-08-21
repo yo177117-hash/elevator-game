@@ -107,6 +107,13 @@ let endGhostActive = false;
 let endGhostScale  = 1.0;
 const END_GHOST_MAX = 4.0;
 
+// ==== 깜빡임 설정 ====
+// 전체 길이는 preFlickerEnd 로 이미 제어하고 있고,
+// "속도(한 번 켜졌다 꺼지는 주기)"는 이 값으로 조절합니다.
+const FLICKER_INTERVAL_MS = 200;   // ← 숫자를 키울수록 깜빡임이 느려짐 (예: 120~220 추천)
+const FLICKER_ALPHA       = 180;   // 깜빡일 때 덮는 밝기(투명도). 150~220 정도 권장.
+
+
 /* ---------- 랜덤 타겟 ---------- */
 function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 function planGhosts(){
@@ -399,24 +406,25 @@ function drawApartmentDoor(x,y,w,h){
 function drawPreFlicker(){
   if (!preFlickerActive) return;
 
-  // 어둡게 → 밝게를 빠르게 랜덤 반복
-  const remain = preFlickerEnd - millis();
-  if (remain <= 0) {
-    preFlickerActive = false;
-    beginRndOverlayFromPending();
-    return;
+  const elapsed = millis() - preFlickerStartedAt;
+
+  // 주기 단위로 토글 → 깜빡임 속도 조절
+  const isOn = Math.floor(elapsed / FLICKER_INTERVAL_MS) % 2 === 0;
+
+  if (isOn) {
+    fill(255, FLICKER_ALPHA);   // 밝게
+  } else {
+    fill(0, 200);               // 어둡게
   }
+  rect(0, 0, width, height);
 
-  // 60~120ms 주기로 밝기 변화
-  const period = 60 + (frameCount % 2) * 40;
-  const phase = (frameCount % Math.floor(period/16));
-  const isBright = phase < 2 || random() < 0.1;
-
-  // 화면 덮는 플래시
-  if (isBright) fill(255, 200);
-  else fill(0, 200);
-  rect(0,0,width,height);
+  // 깜빡임 끝났는지 체크
+  if (millis() >= preFlickerEnd) {
+    preFlickerActive = false;
+    beginRndOverlayFromPending();  // 기존 귀신 출현 트리거 함수
+  }
 }
+
 
 /* ---------- 유령 오버레이 (맨 마지막) ---------- */
 function drawGhostOverlay(){

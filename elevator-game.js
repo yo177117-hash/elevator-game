@@ -504,9 +504,9 @@ function drawGhostOverlay(){
       'The END',
       END_GHOST_MAX,
       0,
-      () => { window.location.href='https://www.onstove.com'; },
+      () => { window.location.href='http://bill.onstove.com/G-Coupon/DownloadCoupon.aspx?game_id=INDIEGAME&coupon_id=11743'; },
       true,
-      () => { window.location.href='https://www.onstove.com'; }
+      () => { window.location.href='http://bill.onstove.com/G-Coupon/DownloadCoupon.aspx?game_id=INDIEGAME&coupon_id=11743'; }
     );
   }
 }

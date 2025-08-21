@@ -481,7 +481,7 @@ function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse,
 
   const elapsed = millis() - rndStartMillis;
   if (usePulse) {
-    rndGhostScale = computePulseScale(elapsed, 1.0, 0.12, 400, maxScale);
+    rndGhostScale = computePulseScale(elapsed, 0.2, 0.2, 100, maxScale);
   } else {
     rndGhostScale = min(maxScale, rndGhostScale + 0.8);
   }

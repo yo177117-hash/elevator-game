@@ -457,7 +457,7 @@ function drawGhostOverlay(){
     );
   }
 }
-function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxScale=2.2){
+function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxScale=1.8){
   const step = floor(elapsedMs / stepMs);
   const prevScale   = min(base + (step-1)*stepGrow, maxScale);
   const targetScale = min(base + step*stepGrow,     maxScale);
@@ -481,7 +481,7 @@ function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse,
 
   const elapsed = millis() - rndStartMillis;
   if (usePulse) {
-    rndGhostScale = computePulseScale(elapsed, 0.2, 0.2, 100, maxScale);
+    rndGhostScale = computePulseScale(elapsed, 0.1, 0.5, 50, maxScale);
   } else {
     rndGhostScale = min(maxScale, rndGhostScale + 0.8);
   }

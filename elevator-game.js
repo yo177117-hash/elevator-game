@@ -145,7 +145,7 @@ function beginRndOverlayFromPending() {
   rndGhostActive = true;
   rndGhostScale  = 1.0;
   rndGhostKind   = pendingGhostKind;
-  rndGhostText   = (rndGhostKind==='move') ? '공' : (rndGhostKind==='arrive') ? '포' : '게임';
+  rndGhostText   = (rndGhostKind==='move') ? '25horror' : (rndGhostKind==='arrive') ? '25thriller' : '25mystery';
   rndStartMillis = millis();
   pendingGhostKind = null;
 }

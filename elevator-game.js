@@ -510,7 +510,7 @@ function drawGhostOverlay(){
     );
   }
 }
-function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxScale=1.3){
+function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxScale=1.1){
   const step = floor(elapsedMs / stepMs);
   const prevScale   = min(base + (step-1)*stepGrow, maxScale);
   const targetScale = min(base + step*stepGrow,     maxScale);

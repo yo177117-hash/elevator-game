@@ -510,7 +510,7 @@ function drawGhostOverlay(){
     );
   }
 }
-function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxScale=1.1){
+function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxScale=1.0){
   const step = floor(elapsedMs / stepMs);
   const prevScale   = min(base + (step-1)*stepGrow, maxScale);
   const targetScale = min(base + step*stepGrow,     maxScale);
@@ -523,8 +523,8 @@ function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxSc
 function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse, onTextClick){
   fill(0,180); rect(0,0,width,height);
 
-  const vw = Math.min(960, width);
-  const vh = Math.min(540, height);
+  const vw = Math.min(800, width);
+  const vh = Math.min(450, height);
   let iw=vw, ih=vh;
   if (isImgReady(img)) {
     const r = img.width / img.height;

@@ -54,7 +54,67 @@ const ambientAptByFloor = {};
 let draggingIdx = -1;
 let dragOffset = {x:0,y:0};
 
-/* ---------- 사운드(Web Audio) ---------- */
+/* ---------- (간단) 효과음 ---------- */
+/* 요청 사항:
+   - 기존 Web Audio로 만든 ‘위잉~’ 이동음/엔딩 비명 제거
+   - 이동 시 ele.wav 재생 (루프)
+   - 엔딩 시 mp3 1회만 재생
+*/
+const MOVE_SFX_URL = 'https://gundog.dothome.co.kr/public/uploads/ele.wav?_t=1755774980';
+const END_SCREAM_URL = 'https://gundog.dothome.co.kr/public/uploads/992714455D07B50C08.mp3?_t=1755769109';
+
+let moveAudio = null;
+let endScreamAudio = null;
+let sfxReady = false;
+let endScreamPlayed = false;
+
+function initSfx() {
+  if (sfxReady) return;
+  try {
+    moveAudio = new Audio(MOVE_SFX_URL);
+    moveAudio.loop = true;
+    // 필요 시 볼륨 조정: moveAudio.volume = 0.9;
+
+    endScreamAudio = new Audio(END_SCREAM_URL);
+    endScreamAudio.loop = false;
+    // 필요 시 볼륨 조정: endScreamAudio.volume = 1.0;
+
+    sfxReady = true;
+  } catch(e) {
+    // 무음 fallback
+    sfxReady = false;
+  }
+}
+function startMoveSfx(){
+  if (!sfxReady) return;
+  try {
+    // iOS 등에서 첫 사용자 제스처 후 재생 허용
+    if (moveAudio.paused) {
+      moveAudio.currentTime = 0;
+      moveAudio.play();
+    }
+  } catch(e) {}
+}
+function stopMoveSfx(){
+  if (!sfxReady) return;
+  try {
+    moveAudio.pause();
+    moveAudio.currentTime = 0;
+  } catch(e) {}
+}
+function playEndScreamOnce(){
+  if (!sfxReady || endScreamPlayed) return;
+  endScreamPlayed = true;
+  try {
+    endScreamAudio.currentTime = 0;
+    endScreamAudio.play();
+  } catch(e) {}
+}
+
+/* ---------- 딩동벨(도어벨) ----------
+   * 기존 코드 유지 (사용자 요청은 이동음/비명만 교체였음)
+   * Web Audio 기반 간단 톤
+*/
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) {
@@ -77,109 +137,6 @@ function playDingDong() {
   initAudio(); if (!audioCtx) return;
   const t = audioCtx.currentTime;
   tone(784,t); tone(659,t+0.22);
-}
-
-/* === 엘리베이터 '위잉~' 루프 === */
-const HUM_GAIN_TARGET = 0.11;  // 루프 음량
-const HUM_FADE_TIME   = 0.25;  // 페이드 인/아웃(s)
-const HUM_FREQ_A      = 62;    // 저음(Hz)
-const HUM_FREQ_B      = 124;   // 중음(Hz)
-const HUM_TREMOLO_HZ  = 3.2;   // 약한 진동속도(Hz)
-
-const hum = { oscA:null, oscB:null, lfo:null, lfoGain:null, gain:null, active:false };
-function startElevatorHum(){
-  initAudio(); if (!audioCtx || hum.active) return;
-  hum.gain = audioCtx.createGain();
-  hum.gain.gain.value = 0;
-
-  hum.oscA = audioCtx.createOscillator();
-  hum.oscB = audioCtx.createOscillator();
-  hum.oscA.type = 'sawtooth';
-  hum.oscB.type = 'triangle';
-  hum.oscA.frequency.value = HUM_FREQ_A;
-  hum.oscB.frequency.value = HUM_FREQ_B;
-
-  // 가벼운 tremolo
-  hum.lfo = audioCtx.createOscillator();
-  hum.lfo.frequency.value = HUM_TREMOLO_HZ;
-  hum.lfoGain = audioCtx.createGain();
-  hum.lfoGain.gain.value = HUM_GAIN_TARGET * 0.35;
-
-  hum.lfo.connect(hum.lfoGain);
-  hum.lfoGain.connect(hum.gain.gain);
-
-  hum.oscA.connect(hum.gain);
-  hum.oscB.connect(hum.gain);
-  hum.gain.connect(audioCtx.destination);
-
-  const now = audioCtx.currentTime;
-  hum.gain.gain.setValueAtTime(0, now);
-  hum.gain.gain.linearRampToValueAtTime(HUM_GAIN_TARGET, now + HUM_FADE_TIME);
-
-  hum.oscA.start(now);
-  hum.oscB.start(now);
-  hum.lfo.start(now);
-  hum.active = true;
-}
-function stopElevatorHum(){
-  if (!audioCtx || !hum.active) return;
-  const now = audioCtx.currentTime;
-  hum.gain.gain.cancelScheduledValues(now);
-  hum.gain.gain.linearRampToValueAtTime(0, now + HUM_FADE_TIME);
-  // 안전 정지
-  const stopAt = now + HUM_FADE_TIME + 0.05;
-  hum.oscA.stop(stopAt);
-  hum.oscB.stop(stopAt);
-  hum.lfo.stop(stopAt);
-  setTimeout(()=>{ hum.oscA=hum.oscB=hum.lfo=hum.lfoGain=hum.gain=null; hum.active=false; }, (HUM_FADE_TIME*1000)+80);
-}
-
-/* === 여자 비명(엔딩) Synth === */
-const SCREAM_DUR   = 1.6;  // 전체 길이(s)
-const SCREAM_BASE  = 700;  // 시작 피치(Hz)
-const SCREAM_PEAK  = 1500; // 피치 피크(Hz)
-function playScream(){
-  initAudio(); if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  // 노이즈 버퍼
-  const len = Math.floor(audioCtx.sampleRate * SCREAM_DUR);
-  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i=0;i<len;i++) data[i] = (Math.random()*2 - 1) * (1 - i/len); // 끝으로 갈수록 약해짐
-
-  const noise = audioCtx.createBufferSource();
-  noise.buffer = buf;
-
-  const bp = audioCtx.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = 1600;
-  bp.Q.value = 1.0;
-
-  const nGain = audioCtx.createGain();
-  nGain.gain.setValueAtTime(0, now);
-  nGain.gain.linearRampToValueAtTime(0.45, now + 0.08);
-  nGain.gain.linearRampToValueAtTime(0.22, now + 0.6);
-  nGain.gain.exponentialRampToValueAtTime(0.0001, now + SCREAM_DUR);
-
-  noise.connect(bp); bp.connect(nGain); nGain.connect(audioCtx.destination);
-  noise.start(now); noise.stop(now + SCREAM_DUR + 0.02);
-
-  // 피치 글라이드(진짜 비명 느낌)
-  const osc = audioCtx.createOscillator();
-  const oGain = audioCtx.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(SCREAM_BASE, now);
-  osc.frequency.exponentialRampToValueAtTime(SCREAM_PEAK, now + 0.35);
-  osc.frequency.linearRampToValueAtTime(900, now + SCREAM_DUR);
-
-  oGain.gain.setValueAtTime(0, now);
-  oGain.gain.linearRampToValueAtTime(0.28, now + 0.06);
-  oGain.gain.linearRampToValueAtTime(0.18, now + 0.5);
-  oGain.gain.exponentialRampToValueAtTime(0.0001, now + SCREAM_DUR);
-
-  osc.connect(oGain); oGain.connect(audioCtx.destination);
-  osc.start(now); osc.stop(now + SCREAM_DUR + 0.02);
 }
 
 /* ---------- 유령/엔딩 ---------- */
@@ -237,12 +194,12 @@ function triggerRndGhost(kind){
     doorTimer = Math.max(1, Math.floor((1 - doorProgress) * 60));
   }
   if (kind==='move' && elevatorMoving){
-    // 이동 중 유령 등장 → 이동 일시정지 + 루프 즉시 정지
+    // 이동 중 유령 등장 → 이동 일시정지 + 이동 사운드 정지
     pausedMovement = true;
     pausedTarget   = targetFloor;
     elevatorMoving = false;
     elevatorDirection = '';
-    stopElevatorHum();
+    stopMoveSfx();
   }
 }
 function beginRndOverlayFromPending() {
@@ -265,13 +222,14 @@ function stopRndGhost(){
   doorState='closing'; doorTimer=60;
 
   if (pausedMovement){
+    // 유령 종료 후 재이동 + 이동 사운드 재시작
     pausedMovement=false;
     targetFloor = pausedTarget;
     if (currentFloor !== targetFloor){
       elevatorMoving=true;
       elevatorDirection = (targetFloor>currentFloor)?'↑':'↓';
       moveTimer=60;
-      startElevatorHum(); // 재이동 시작 → 루프 재생
+      startMoveSfx();
     }
   }
 }
@@ -281,8 +239,8 @@ function startEndGhost(){
   rndStartMillis = millis();
   doorState='opening';
   doorTimer = Math.max(1, Math.floor((1 - doorProgress) * 60));
-  stopElevatorHum(); // 엔딩에선 이동음 정지
-  playScream();      // 비명!
+  stopMoveSfx();         // 엔딩에선 이동 사운드 정지
+  playEndScreamOnce();   // 엔딩 비명 1회 재생
 }
 
 /* ---------- p5 ---------- */
@@ -457,10 +415,11 @@ function floorClick(f){
     return;
   }
   if (doorState==='closed'){
+    // 이동 시작 → 이동 사운드 시작
     elevatorMoving=true;
     elevatorDirection=(targetFloor>currentFloor)?'↑':'↓';
     moveTimer=60;
-    startElevatorHum(); // 닫힌 상태에서 바로 이동 시작되는 경우
+    startMoveSfx();
   } else {
     doorState='closing';
     doorTimer=Math.max(1,Math.floor(doorProgress)*60);
@@ -628,10 +587,11 @@ function updateElevator(){
     if (doorTimer<=0){
       doorState='closed'; doorProgress=0;
       if (targetFloor!==null && targetFloor!==currentFloor){
+        // 이동 시작 → 이동 사운드 시작
         elevatorMoving=true;
         elevatorDirection=(targetFloor>currentFloor)?'↑':'↓';
         moveTimer=60;
-        startElevatorHum(); // 이동 시작 → 루프 시작
+        startMoveSfx();
       }
     }
   } else if (doorState==='opening' && doorTimer>0){
@@ -646,8 +606,9 @@ function updateElevator(){
       if (!ghostDone.move && moveStepCount===moveGhostTarget) triggerRndGhost('move');
       moveTimer=60;
       if (currentFloor===targetFloor){
+        // 도착 → 이동 정지 + 이동 사운드 정지
         elevatorMoving=false; elevatorDirection='';
-        stopElevatorHum(); // 도착 → 루프 정지
+        stopMoveSfx();
         doorState='opening'; doorTimer=60;
         arriveOpenCount++;
         if (!ghostDone.arrive && arriveOpenCount===arriveGhostTarget) triggerRndGhost('arrive');
@@ -689,16 +650,22 @@ function generateGameData(){
   currentFloor=1; targetFloor=null;
   doorState='open'; doorProgress=1; elevatorMoving=false; elevatorDirection='';
   rndGhostActive=false; rndGhostScale=1.0; rndGhostText=''; rndGhostKind=''; pausedMovement=false; pausedTarget=null;
-  endGhostActive=false; endGhostScale=1.0;
+  endGhostActive=false; endGhostScale=1.0; endScreamPlayed=false;
   preFlickerActive=false; pendingGhostKind=null;
 
   moveStepCount=0; arriveOpenCount=0; deliveryDoneCount=0;
   ghostDone.move=false; ghostDone.arrive=false; ghostDone.deliver=false;
+
+  // 혹시 남아있을 수 있는 이동 사운드 정지
+  stopMoveSfx();
 }
 
 /* ---------- 드래그/클릭 ---------- */
 function mousePressed(){
   if (preFlickerActive || rndGhostActive || endGhostActive) return;
+
+  // 첫 사용자 제스처 시점에 오디오 초기화
+  initSfx();
   initAudio();
 
   // 클릭한 패키지 찾기(맨 위부터)

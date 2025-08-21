@@ -523,8 +523,8 @@ function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxSc
 function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse, onTextClick){
   fill(0,180); rect(0,0,width,height);
 
-  const vw = Math.min(1280, width);
-  const vh = Math.min(720, height);
+  const vw = Math.min(960, width);
+  const vh = Math.min(540, height);
   let iw=vw, ih=vh;
   if (isImgReady(img)) {
     const r = img.width / img.height;

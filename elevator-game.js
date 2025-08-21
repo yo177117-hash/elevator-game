@@ -10,8 +10,8 @@ const GHOST_URLS = {
   end:    'https://gundog.dothome.co.kr/public/uploads/4.jpg?_t=1755609169'
 };
 const WARN_URLS = {
-  lean: 'https://gundog.dothome.co.kr/public/uploads/gi.jpg?_t=1755699175',   // 기대지마세요
-  hand: 'https://gundog.dothome.co.kr/public/uploads/son.jpg?_t=1755699177'   // 손대지마세요
+  lean: 'https://gundog.dothome.co.kr/public/uploads/gi.jpg?_t=1755699175',
+  hand: 'https://gundog.dothome.co.kr/public/uploads/son.jpg?_t=1755699177'
 };
 const BOX_URL = 'https://gundog.dothome.co.kr/public/uploads/box-1.png?_t=1755746605';
 
@@ -83,14 +83,14 @@ function playDingDong() {
 // 랜덤 유령 오버레이
 let rndGhostActive = false;
 let rndGhostScale = 1.0;
-let rndGhostText  = "";              // "공","포","게임"
-let rndGhostKind  = "";              // move|arrive|deliver
-let rndStartMillis = 0;              // 오버레이 시작시각
+let rndGhostText  = "";
+let rndGhostKind  = "";
+let rndStartMillis = 0;
 
-// 오버레이 직전 깜빡임(플리커) — 느리게 조절 가능한 상수
-const FLICKER_DURATION_MS = 1200;    // 전체 깜빡임 지속시간
-const FLICKER_INTERVAL_MS = 180;     // 한 번 밝음/어두움 유지 시간(↑ 키우면 더 느림)
-const FLICKER_FADE_MS     = 80;      // 밝/어둠 전환 페이드
+// 깜빡임(느리게 조절)
+const FLICKER_DURATION_MS = 1200;
+const FLICKER_INTERVAL_MS = 180;
+const FLICKER_FADE_MS     = 80;
 
 let preFlickerActive = false;
 let preFlickerStart  = 0;
@@ -195,7 +195,7 @@ function draw(){
   // 2) 엘리베이터/문
   drawElevator();
 
-  // 3) 우측 패널(패키지 포함) — 패키지가 엘리베이터 위에 보임
+  // 3) 우측 패널(패키지 포함) — 패키지를 문/배경 위로 보이게
   drawRightPanel();
 
   // 4) 로직
@@ -238,7 +238,7 @@ function drawRightPanel(){
 }
 
 function drawPackages(baseX, baseY){
-  const dx=78, dy=58; // 슬롯 간격(이미지 크기에 맞춰 약간 키움)
+  const dx=78, dy=58;
   const slots=[
     {x:baseX,     y:baseY},
     {x:baseX,     y:baseY+dy},
@@ -247,51 +247,47 @@ function drawPackages(baseX, baseY){
     {x:baseX,     y:baseY+dy*2},
   ];
 
-  // 드래그 중 아닌 박스들
+  // 드래그 중 아닌 박스
   for (let i=0;i<packages.length;i++){
     const p=packages[i];
     if (p.dragging) continue;
-    if(!p.dragging){ p.x=slots[i].x; p.y=slots[i].y; }
+    if (p.delivered) continue;               // ★ 배달 완료된 박스는 아예 숨김
+    p.x=slots[i].x; p.y=slots[i].y;
     drawOnePackage(p);
   }
-  // 드래그 중인 박스는 맨 마지막에 (항상 최상단)
+  // 드래그 중 박스는 맨 위
   for (let i=0;i<packages.length;i++){
     const p=packages[i];
     if (!p.dragging) continue;
+    if (p.delivered) continue;
     drawOnePackage(p);
   }
 }
 
 function drawOnePackage(p){
-  // 기본 표시 크기(이미지 비율 유지해서 그릴 목표 폭/높이)
-  let targetH = 48;             // 높이 기준
-  let targetW = 64;             // 대략값 (이미지 준비 전)
+  // 이미지 크기(비율 유지)
+  let targetH = 48, targetW = 64;
   if (isImgReady(boxImg)) {
-    const r = boxImg.width / boxImg.height; // 원본 비율
+    const r = boxImg.width / boxImg.height;
     targetW = targetH * r;
   }
-  // 패키지의 실제 충돌 박스(w,h)도 이미지 크기에 맞춰 갱신
   p.w = targetW; p.h = targetH;
 
-  // 드래그 반영
   if (p.dragging){ p.x=mouseX-dragOffset.x; p.y=mouseY-dragOffset.y; }
 
-  // 이미지 그리기
-  if (isImgReady(boxImg)) {
-    image(boxImg, p.x, p.y, p.w, p.h);
-  } else {
-    // 이미지 로딩 전 임시 박스
-    fill(210,150,80); rect(p.x,p.y,p.w,p.h,6);
+  if (isImgReady(boxImg)) image(boxImg, p.x, p.y, p.w, p.h);
+  else { fill(210,150,80); rect(p.x,p.y,p.w,p.h,6); }
+
+  // 라벨(완료 전만 표시)
+  if (!p.delivered) {
+    const badgeW = Math.max(34, textWidth(p.label) + 12);
+    const badgeH = 16;
+    fill(0,160); rect(p.x + p.w*0.5 - badgeW/2, p.y + p.h*0.35 - badgeH/2, badgeW, badgeH, 6);
+    fill(255); textAlign(CENTER,CENTER); textSize(12);
+    text(p.label, p.x + p.w*0.5, p.y + p.h*0.35);
   }
 
-  // 라벨 배지
-  const badgeW = Math.max(34, textWidth(p.label) + 12);
-  const badgeH = 16;
-  fill(0,160); rect(p.x + p.w*0.5 - badgeW/2, p.y + p.h*0.35 - badgeH/2, badgeW, badgeH, 6);
-  fill(255); textAlign(CENTER,CENTER); textSize(12);
-  text(p.label, p.x + p.w*0.5, p.y + p.h*0.35);
-
-  // 호버 하이라이트
+  // 호버
   const hovered = mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h;
   if (hovered && !p.delivered && !p.dragging){
     noFill(); stroke(255,220); rect(p.x,p.y,p.w,p.h,6); noStroke();
@@ -313,11 +309,11 @@ function drawElevator(){
 
   // 문
   fill(120); stroke(200); strokeWeight(2);
-  rect(area.x, area.y, eachW, area.h);                       // 왼쪽
-  rect(area.x+area.w-eachW, area.y, eachW, area.h);          // 오른쪽
+  rect(area.x, area.y, eachW, area.h);
+  rect(area.x+area.w-eachW, area.y, eachW, area.h);
   noStroke();
 
-  // 문 스티커
+  // 스티커
   if (eachW > 5 && isImgReady(warnImgs.lean) && isImgReady(warnImgs.hand)) {
     imageMode(CENTER);
     const lcx = area.x + eachW/2;
@@ -422,10 +418,8 @@ function drawPreFlicker(){
   const periodIdx = Math.floor(elapsed / FLICKER_INTERVAL_MS);
   const within    = elapsed % FLICKER_INTERVAL_MS;
 
-  // 0,2,4... 밝음 / 1,3,5... 어둠
   const targetBright = (periodIdx % 2 === 0);
 
-  // 페이드 인/아웃
   const t = constrain(within / FLICKER_FADE_MS, 0, 1);
   const k = targetBright ? t : (1 - t);
 
@@ -445,19 +439,21 @@ function drawGhostOverlay(){
     :                           ghostImgs.deliver,
       rndGhostText,
       2.2,
-      rndGhostKind==='arrive' ? 10000 : 0, // GIF 자막 10초 지연
+      rndGhostKind==='arrive' ? 10000 : 0,
       () => stopRndGhost(),
-      true
+      true,
+      null
     );
   }
   if (endGhostActive) {
     drawFullscreenGhost(
       ghostImgs.end,
-      '게임',
+      'The END',
       END_GHOST_MAX,
       0,
       () => { window.location.href='https://www.onstove.com'; },
-      true
+      true,
+      () => { window.location.href='https://www.onstove.com'; } // 텍스트 클릭
     );
   }
 }
@@ -471,7 +467,7 @@ function computePulseScale(elapsedMs, base=1.0, stepGrow=0.12, stepMs=400, maxSc
   else k = 1;
   return lerp(prevScale, targetScale, k);
 }
-function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse){
+function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse, onTextClick){
   fill(0,180); rect(0,0,width,height);
 
   const vw = Math.min(1920, width);
@@ -501,13 +497,33 @@ function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse)
   if (mouseIsPressed &&
       mouseX>=escX && mouseX<=escX+escW &&
       mouseY>=escY && mouseY<=escY+escH) {
-    onEsc();
+    onEsc && onEsc();
   }
 
+  // 텍스트 & 클릭
   if (elapsed >= textDelayMs) {
     const alpha = map(rndGhostScale,1.0,2.0,100,255,true);
-    fill(255,alpha); textAlign(CENTER,CENTER); textSize(32*rndGhostScale);
-    text(label, width/2, height/2 + 40*rndGhostScale);
+    const ts = 42*rndGhostScale;
+    textSize(ts);
+    fill(255,alpha);
+    textAlign(CENTER,CENTER);
+    const tx = width/2;
+    const ty = height/2 + 40*rndGhostScale;
+    text(label, tx, ty);
+
+    if (onTextClick) {
+      const tw = textWidth(label);
+      const th = ts * 1.2;
+      const bx = tx - tw/2 - 8;
+      const by = ty - th/2;
+      const bw = tw + 16;
+      const bh = th;
+      if (mouseIsPressed &&
+          mouseX>=bx && mouseX<=bx+bw &&
+          mouseY>=by && mouseY<=by+bh) {
+        onTextClick();
+      }
+    }
   }
 }
 
@@ -569,7 +585,6 @@ function generateGameData(){
   const mysteryTarget = choice(houses4);
   deliveries.push({name:mysteryTarget.name, floor:mysteryTarget.floor, apt:mysteryTarget.apt, delivered:false, isMystery:true});
 
-  // 초기 패키지 크기(이미지 로딩 전 임시값, draw에서 이미지 비율로 보정)
   packages = [
     ...houses4.map(h => ({label:h.apt, floor:h.floor, apt:h.apt, isMystery:false, delivered:false, dragging:false, x:0, y:0, w:64, h:48})),
     {label:'??', floor:mysteryTarget.floor, apt:mysteryTarget.apt, isMystery:true, delivered:false, dragging:false, x:0, y:0, w:64, h:48}
@@ -585,14 +600,30 @@ function generateGameData(){
   ghostDone.move=false; ghostDone.arrive=false; ghostDone.deliver=false;
 }
 
-/* ---------- 드래그 ---------- */
+/* ---------- 드래그/클릭 ---------- */
 function mousePressed(){
   if (preFlickerActive || rndGhostActive || endGhostActive) return;
   initAudio();
+
+  // 클릭한 패키지 찾기(맨 위부터)
   for (let i=packages.length-1;i>=0;i--){
     const p=packages[i];
     if (p.delivered) continue;
     if (mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h){
+
+      // ★ 모든 일반 배송 완료 후 ?? 클릭 → 즉시 엔딩
+      if (p.isMystery) {
+        const normalsDone = deliveries.every(d => d.isMystery || d.delivered);
+        if (normalsDone && !endGhostActive) {
+          p.delivered = true;                 // ?? 상자도 숨김
+          const found=deliveries.find(d=>d.isMystery && !d.delivered);
+          if (found) found.delivered=true;
+          startEndGhost();
+          return;
+        }
+      }
+
+      // 그 외는 드래그 시작
       draggingIdx=i; p.dragging=true;
       dragOffset.x=mouseX-p.x; dragOffset.y=mouseY-p.y;
       break;
@@ -611,17 +642,10 @@ function mouseReleased(){
 
   if (doorState==='open' && showDoor && inDoor && currentFloor===p.floor){
     if (p.isMystery){
-      const normalsDone = deliveries.every(d => d.isMystery || d.delivered);
-      const allRndDone  = ghostDone.move && ghostDone.arrive && ghostDone.deliver;
-      if (normalsDone && allRndDone && !endGhostActive){
-        p.delivered=true;
-        const found=deliveries.find(d=>d.isMystery && !d.delivered);
-        if (found) found.delivered=true;
-        startEndGhost();
-      }
+      // mystery는 이제 클릭으로만 엔딩을 여니, 여기서는 아무 것도 안 함
     } else {
       if (!p.delivered){
-        p.delivered=true;
+        p.delivered=true;                     // ★ 완료 즉시 박스 숨김
         const order=deliveries.find(d=>!d.delivered && !d.isMystery && d.floor===p.floor && d.apt===p.apt);
         if (order) order.delivered=true;
         const h=houses4.find(h=>h.floor===p.floor && h.apt===p.apt);

@@ -125,7 +125,7 @@ function triggerRndGhost(kind){
   // 깜빡임 세팅(0.8s)
   pendingGhostKind = kind;
   preFlickerActive = true;
-  preFlickerEnd = millis() + 800;
+  preFlickerEnd = millis() + 1200;
 
   // 문 열기·이동 일시정지 등은 지금 처리(깜빡임 중 동시에 진행)
   if (doorState!=='open'){
@@ -484,7 +484,7 @@ function drawFullscreenGhost(img, label, maxScale, textDelayMs, onEsc, usePulse)
   // 스케일: 펄스(계단식) or 유지
   const elapsed = millis() - rndStartMillis;
   if (usePulse) {
-    rndGhostScale = computePulseScale(elapsed, 1.0, 0.12, 280, maxScale);
+    rndGhostScale = computePulseScale(elapsed, 1.0, 0.12, 400, maxScale);
   } else {
     rndGhostScale = min(maxScale, rndGhostScale + 0.02);
   }

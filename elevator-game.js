@@ -125,7 +125,7 @@ function triggerRndGhost(kind){
   // 깜빡임 세팅(0.8s)
   pendingGhostKind = kind;
   preFlickerActive = true;
-  preFlickerEnd = millis() + 1200;
+  preFlickerEnd = millis() + 600;
 
   // 문 열기·이동 일시정지 등은 지금 처리(깜빡임 중 동시에 진행)
   if (doorState!=='open'){

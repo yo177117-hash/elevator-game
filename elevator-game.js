@@ -54,7 +54,7 @@ const ambientAptByFloor = {};
 let draggingIdx = -1;
 let dragOffset = {x:0,y:0};
 
-/* ---------- 사운드 ---------- */
+/* ---------- 사운드(Web Audio) ---------- */
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) {
@@ -78,25 +78,117 @@ function playDingDong() {
   const t = audioCtx.currentTime;
   tone(784,t); tone(659,t+0.22);
 }
-function playScream() {
+
+/* === 엘리베이터 '위잉~' 루프 === */
+const HUM_GAIN_TARGET = 0.11;  // 루프 음량
+const HUM_FADE_TIME   = 0.25;  // 페이드 인/아웃(s)
+const HUM_FREQ_A      = 62;    // 저음(Hz)
+const HUM_FREQ_B      = 124;   // 중음(Hz)
+const HUM_TREMOLO_HZ  = 3.2;   // 약한 진동속도(Hz)
+
+const hum = { oscA:null, oscB:null, lfo:null, lfoGain:null, gain:null, active:false };
+function startElevatorHum(){
+  initAudio(); if (!audioCtx || hum.active) return;
+  hum.gain = audioCtx.createGain();
+  hum.gain.gain.value = 0;
+
+  hum.oscA = audioCtx.createOscillator();
+  hum.oscB = audioCtx.createOscillator();
+  hum.oscA.type = 'sawtooth';
+  hum.oscB.type = 'triangle';
+  hum.oscA.frequency.value = HUM_FREQ_A;
+  hum.oscB.frequency.value = HUM_FREQ_B;
+
+  // 가벼운 tremolo
+  hum.lfo = audioCtx.createOscillator();
+  hum.lfo.frequency.value = HUM_TREMOLO_HZ;
+  hum.lfoGain = audioCtx.createGain();
+  hum.lfoGain.gain.value = HUM_GAIN_TARGET * 0.35;
+
+  hum.lfo.connect(hum.lfoGain);
+  hum.lfoGain.connect(hum.gain.gain);
+
+  hum.oscA.connect(hum.gain);
+  hum.oscB.connect(hum.gain);
+  hum.gain.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime;
+  hum.gain.gain.setValueAtTime(0, now);
+  hum.gain.gain.linearRampToValueAtTime(HUM_GAIN_TARGET, now + HUM_FADE_TIME);
+
+  hum.oscA.start(now);
+  hum.oscB.start(now);
+  hum.lfo.start(now);
+  hum.active = true;
+}
+function stopElevatorHum(){
+  if (!audioCtx || !hum.active) return;
+  const now = audioCtx.currentTime;
+  hum.gain.gain.cancelScheduledValues(now);
+  hum.gain.gain.linearRampToValueAtTime(0, now + HUM_FADE_TIME);
+  // 안전 정지
+  const stopAt = now + HUM_FADE_TIME + 0.05;
+  hum.oscA.stop(stopAt);
+  hum.oscB.stop(stopAt);
+  hum.lfo.stop(stopAt);
+  setTimeout(()=>{ hum.oscA=hum.oscB=hum.lfo=hum.lfoGain=hum.gain=null; hum.active=false; }, (HUM_FADE_TIME*1000)+80);
+}
+
+/* === 여자 비명(엔딩) Synth === */
+const SCREAM_DUR   = 1.6;  // 전체 길이(s)
+const SCREAM_BASE  = 700;  // 시작 피치(Hz)
+const SCREAM_PEAK  = 1500; // 피치 피크(Hz)
+function playScream(){
   initAudio(); if (!audioCtx) return;
-  const t = audioCtx.currentTime;
-  // 비명 소리 흉내: 고주파 톤을 길게, 떨림 효과로 여러 톤 섞음
-  tone(1200, t, 1.2, 0.5); // 주요 고음
-  tone(1000, t + 0.1, 1.0, 0.4); // 약간 낮은 톤 지연
-  tone(1400, t + 0.2, 0.8, 0.3); // 더 높은 톤 추가
-  tone(800, t + 0.3, 1.5, 0.2); // 저음 떨림
+  const now = audioCtx.currentTime;
+
+  // 노이즈 버퍼
+  const len = Math.floor(audioCtx.sampleRate * SCREAM_DUR);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i=0;i<len;i++) data[i] = (Math.random()*2 - 1) * (1 - i/len); // 끝으로 갈수록 약해짐
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1600;
+  bp.Q.value = 1.0;
+
+  const nGain = audioCtx.createGain();
+  nGain.gain.setValueAtTime(0, now);
+  nGain.gain.linearRampToValueAtTime(0.45, now + 0.08);
+  nGain.gain.linearRampToValueAtTime(0.22, now + 0.6);
+  nGain.gain.exponentialRampToValueAtTime(0.0001, now + SCREAM_DUR);
+
+  noise.connect(bp); bp.connect(nGain); nGain.connect(audioCtx.destination);
+  noise.start(now); noise.stop(now + SCREAM_DUR + 0.02);
+
+  // 피치 글라이드(진짜 비명 느낌)
+  const osc = audioCtx.createOscillator();
+  const oGain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(SCREAM_BASE, now);
+  osc.frequency.exponentialRampToValueAtTime(SCREAM_PEAK, now + 0.35);
+  osc.frequency.linearRampToValueAtTime(900, now + SCREAM_DUR);
+
+  oGain.gain.setValueAtTime(0, now);
+  oGain.gain.linearRampToValueAtTime(0.28, now + 0.06);
+  oGain.gain.linearRampToValueAtTime(0.18, now + 0.5);
+  oGain.gain.exponentialRampToValueAtTime(0.0001, now + SCREAM_DUR);
+
+  osc.connect(oGain); oGain.connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + SCREAM_DUR + 0.02);
 }
 
 /* ---------- 유령/엔딩 ---------- */
-// 랜덤 유령 오버레이
 let rndGhostActive = false;
 let rndGhostScale = 1.0;
 let rndGhostText  = "";
 let rndGhostKind  = "";
 let rndStartMillis = 0;
 
-// 깜빡임(느리게 조절)
 const FLICKER_DURATION_MS = 1200;
 const FLICKER_INTERVAL_MS = 180;
 const FLICKER_FADE_MS     = 80;
@@ -118,10 +210,9 @@ let moveGhostTarget = null;
 let arriveGhostTarget = null;
 let deliverGhostTarget = null;
 
-// 엔딩 유령
 let endGhostActive = false;
 let endGhostScale  = 1.0;
-const END_GHOST_MAX = 4.0; // 엔딩 귀신의 최대 스케일 (여기서 귀신 크기를 조절할 수 있음; 예: 3.0으로 줄이면 작아짐)
+const END_GHOST_MAX = 4.0;
 
 /* ---------- 랜덤 타겟 ---------- */
 function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
@@ -146,10 +237,12 @@ function triggerRndGhost(kind){
     doorTimer = Math.max(1, Math.floor((1 - doorProgress) * 60));
   }
   if (kind==='move' && elevatorMoving){
+    // 이동 중 유령 등장 → 이동 일시정지 + 루프 즉시 정지
     pausedMovement = true;
     pausedTarget   = targetFloor;
     elevatorMoving = false;
     elevatorDirection = '';
+    stopElevatorHum();
   }
 }
 function beginRndOverlayFromPending() {
@@ -178,6 +271,7 @@ function stopRndGhost(){
       elevatorMoving=true;
       elevatorDirection = (targetFloor>currentFloor)?'↑':'↓';
       moveTimer=60;
+      startElevatorHum(); // 재이동 시작 → 루프 재생
     }
   }
 }
@@ -187,7 +281,8 @@ function startEndGhost(){
   rndStartMillis = millis();
   doorState='opening';
   doorTimer = Math.max(1, Math.floor((1 - doorProgress) * 60));
-  playScream(); // 마지막 귀신 등장 시 비명 소리 재생
+  stopElevatorHum(); // 엔딩에선 이동음 정지
+  playScream();      // 비명!
 }
 
 /* ---------- p5 ---------- */
@@ -199,24 +294,17 @@ function setup(){
 function draw(){
   background(20);
 
-  // 1) 프레임
   drawFrame();
-
-  // 2) 엘리베이터/문
   drawElevator();
-
-  // 3) 우측 패널(패키지 포함) — 패키지를 문/배경 위로 보이게
   drawRightPanel();
 
-  // 4) 로직
   updateElevator();
 
-  // 5) 깜빡임 → 유령 오버레이 (최상단)
   drawPreFlicker();
   drawGhostOverlay();
 }
 
-/* ---------- 화면 UI ---------- */
+/* ---------- UI ---------- */
 function drawFrame(){
   noStroke(); fill(32); rect(20,20,200,560,6);
   stroke(80); noFill(); rect(230,20,520,560);
@@ -261,7 +349,7 @@ function drawPackages(baseX, baseY){
   for (let i=0;i<packages.length;i++){
     const p=packages[i];
     if (p.dragging) continue;
-    if (p.delivered) continue;               // ★ 배달 완료된 박스는 아예 숨김
+    if (p.delivered) continue;               // 완료 박스 숨김
     p.x=slots[i].x; p.y=slots[i].y;
     drawOnePackage(p);
   }
@@ -275,20 +363,17 @@ function drawPackages(baseX, baseY){
 }
 
 function drawOnePackage(p){
-  // 이미지 크기(비율 유지)
   let targetH = 48, targetW = 64;
   if (isImgReady(boxImg)) {
     const r = boxImg.width / boxImg.height;
     targetW = targetH * r;
   }
   p.w = targetW; p.h = targetH;
-
   if (p.dragging){ p.x=mouseX-dragOffset.x; p.y=mouseY-dragOffset.y; }
 
   if (isImgReady(boxImg)) image(boxImg, p.x, p.y, p.w, p.h);
   else { fill(210,150,80); rect(p.x,p.y,p.w,p.h,6); }
 
-  // 라벨(완료 전만 표시)
   if (!p.delivered) {
     const badgeW = Math.max(34, textWidth(p.label) + 12);
     const badgeH = 16;
@@ -297,7 +382,6 @@ function drawOnePackage(p){
     text(p.label, p.x + p.w*0.5, p.y + p.h*0.35);
   }
 
-  // 호버
   const hovered = mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h;
   if (hovered && !p.delivered && !p.dragging){
     noFill(); stroke(255,220); rect(p.x,p.y,p.w,p.h,6); noStroke();
@@ -376,6 +460,7 @@ function floorClick(f){
     elevatorMoving=true;
     elevatorDirection=(targetFloor>currentFloor)?'↑':'↓';
     moveTimer=60;
+    startElevatorHum(); // 닫힌 상태에서 바로 이동 시작되는 경우
   } else {
     doorState='closing';
     doorTimer=Math.max(1,Math.floor(doorProgress)*60);
@@ -429,7 +514,6 @@ function drawPreFlicker(){
   const within    = elapsed % FLICKER_INTERVAL_MS;
 
   const targetBright = (periodIdx % 2 === 0);
-
   const t = constrain(within / FLICKER_FADE_MS, 0, 1);
   const k = targetBright ? t : (1 - t);
 
@@ -448,7 +532,7 @@ function drawGhostOverlay(){
     : rndGhostKind==='arrive' ? ghostImgs.arrive
     :                           ghostImgs.deliver,
       rndGhostText,
-      2.2, // 랜덤 귀신의 최대 스케일 (여기서 귀신 크기를 조절할 수 있음; 예: 1.5로 줄이면 작아짐)
+      2.2,
       rndGhostKind==='arrive' ? 10000 : 0,
       () => stopRndGhost(),
       true,
@@ -459,11 +543,11 @@ function drawGhostOverlay(){
     drawFullscreenGhost(
       ghostImgs.end,
       'The END',
-      END_GHOST_MAX, // 엔딩 귀신의 최대 스케일 (여기서 귀신 크기를 조절할 수 있음; 예: 3.0으로 줄이면 작아짐)
+      END_GHOST_MAX,
       0,
       () => { window.location.href='https://www.onstove.com'; },
       true,
-      () => { window.location.href='https://www.onstove.com'; } // 텍스트 클릭
+      () => { window.location.href='https://www.onstove.com'; }
     );
   }
 }
@@ -547,6 +631,7 @@ function updateElevator(){
         elevatorMoving=true;
         elevatorDirection=(targetFloor>currentFloor)?'↑':'↓';
         moveTimer=60;
+        startElevatorHum(); // 이동 시작 → 루프 시작
       }
     }
   } else if (doorState==='opening' && doorTimer>0){
@@ -562,6 +647,7 @@ function updateElevator(){
       moveTimer=60;
       if (currentFloor===targetFloor){
         elevatorMoving=false; elevatorDirection='';
+        stopElevatorHum(); // 도착 → 루프 정지
         doorState='opening'; doorTimer=60;
         arriveOpenCount++;
         if (!ghostDone.arrive && arriveOpenCount===arriveGhostTarget) triggerRndGhost('arrive');
@@ -621,11 +707,11 @@ function mousePressed(){
     if (p.delivered) continue;
     if (mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h){
 
-      // ★ 모든 일반 배송 완료 후 ?? 클릭 → 즉시 엔딩
+      // 모든 일반 배송 완료 후 ?? 클릭 → 즉시 엔딩
       if (p.isMystery) {
         const normalsDone = deliveries.every(d => d.isMystery || d.delivered);
         if (normalsDone && !endGhostActive) {
-          p.delivered = true;                 // ?? 상자도 숨김
+          p.delivered = true;
           const found=deliveries.find(d=>d.isMystery && !d.delivered);
           if (found) found.delivered=true;
           startEndGhost();
@@ -633,7 +719,7 @@ function mousePressed(){
         }
       }
 
-      // 그 외는 드래그 시작
+      // 그 외는 드래그
       draggingIdx=i; p.dragging=true;
       dragOffset.x=mouseX-p.x; dragOffset.y=mouseY-p.y;
       break;
@@ -651,22 +737,18 @@ function mouseReleased(){
                  mouseY>=doorHitbox.y && mouseY<=doorHitbox.y+doorHitbox.h;
 
   if (doorState==='open' && showDoor && inDoor && currentFloor===p.floor){
-    if (p.isMystery){
-      // mystery는 이제 클릭으로만 엔딩을 여니, 여기서는 아무 것도 안 함
-    } else {
-      if (!p.delivered){
-        p.delivered=true;                     // ★ 완료 즉시 박스 숨김
-        const order=deliveries.find(d=>!d.delivered && !d.isMystery && d.floor===p.floor && d.apt===p.apt);
-        if (order) order.delivered=true;
-        const h=houses4.find(h=>h.floor===p.floor && h.apt===p.apt);
-        if (h) h.delivered = deliveries.some(d=>d.floor===h.floor && d.apt===h.apt && d.delivered && !d.isMystery);
-        playDingDong();
+    if (!p.isMystery && !p.delivered){
+      p.delivered=true; // 완료 즉시 숨김
+      const order=deliveries.find(d=>!d.delivered && !d.isMystery && d.floor===p.floor && d.apt===p.apt);
+      if (order) order.delivered=true;
+      const h=houses4.find(h=>h.floor===p.floor && h.apt===p.apt);
+      if (h) h.delivered = deliveries.some(d=>d.floor===h.floor && d.apt===h.apt && d.delivered && !d.isMystery);
+      playDingDong();
 
-        deliveryDoneCount++;
-        if (!ghostDone.deliver){
-          if (!deliverGhostTarget) deliverGhostTarget = randInt(1,4);
-          if (deliveryDoneCount===deliverGhostTarget) triggerRndGhost('deliver');
-        }
+      deliveryDoneCount++;
+      if (!ghostDone.deliver){
+        if (!deliverGhostTarget) deliverGhostTarget = randInt(1,4);
+        if (deliveryDoneCount===deliverGhostTarget) triggerRndGhost('deliver');
       }
     }
   }

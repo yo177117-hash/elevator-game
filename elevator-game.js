@@ -207,9 +207,9 @@ function beginRndOverlayFromPending() {
   rndGhostActive = true;
   rndGhostScale  = 1.0;
   rndGhostKind   = pendingGhostKind;
-  rndGhostText   = (rndGhostKind==='move') ? '25horror'
-                  : (rndGhostKind==='arrive') ? '25thriller'
-                  : '25mystery';
+  rndGhostText   = (rndGhostKind==='move') ? '25HORROR'
+                  : (rndGhostKind==='arrive') ? '25THRILLER'
+                  : '25MYSTERY';
   rndStartMillis = millis();
   pendingGhostKind = null;
 }

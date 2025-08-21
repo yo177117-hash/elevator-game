@@ -78,6 +78,15 @@ function playDingDong() {
   const t = audioCtx.currentTime;
   tone(784,t); tone(659,t+0.22);
 }
+function playScream() {
+  initAudio(); if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  // 비명 소리 흉내: 고주파 톤을 길게, 떨림 효과로 여러 톤 섞음
+  tone(1200, t, 1.2, 0.5); // 주요 고음
+  tone(1000, t + 0.1, 1.0, 0.4); // 약간 낮은 톤 지연
+  tone(1400, t + 0.2, 0.8, 0.3); // 더 높은 톤 추가
+  tone(800, t + 0.3, 1.5, 0.2); // 저음 떨림
+}
 
 /* ---------- 유령/엔딩 ---------- */
 // 랜덤 유령 오버레이
@@ -112,7 +121,7 @@ let deliverGhostTarget = null;
 // 엔딩 유령
 let endGhostActive = false;
 let endGhostScale  = 1.0;
-const END_GHOST_MAX = 4.0;
+const END_GHOST_MAX = 4.0; // 엔딩 귀신의 최대 스케일 (여기서 귀신 크기를 조절할 수 있음; 예: 3.0으로 줄이면 작아짐)
 
 /* ---------- 랜덤 타겟 ---------- */
 function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
@@ -178,6 +187,7 @@ function startEndGhost(){
   rndStartMillis = millis();
   doorState='opening';
   doorTimer = Math.max(1, Math.floor((1 - doorProgress) * 60));
+  playScream(); // 마지막 귀신 등장 시 비명 소리 재생
 }
 
 /* ---------- p5 ---------- */
@@ -438,7 +448,7 @@ function drawGhostOverlay(){
     : rndGhostKind==='arrive' ? ghostImgs.arrive
     :                           ghostImgs.deliver,
       rndGhostText,
-      2.2,
+      2.2, // 랜덤 귀신의 최대 스케일 (여기서 귀신 크기를 조절할 수 있음; 예: 1.5로 줄이면 작아짐)
       rndGhostKind==='arrive' ? 10000 : 0,
       () => stopRndGhost(),
       true,
@@ -449,7 +459,7 @@ function drawGhostOverlay(){
     drawFullscreenGhost(
       ghostImgs.end,
       'The END',
-      END_GHOST_MAX,
+      END_GHOST_MAX, // 엔딩 귀신의 최대 스케일 (여기서 귀신 크기를 조절할 수 있음; 예: 3.0으로 줄이면 작아짐)
       0,
       () => { window.location.href='https://www.onstove.com'; },
       true,
